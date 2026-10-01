@@ -1,0 +1,27 @@
+CONECTA - Diagnóstico USB (primeira versão)
+
+Abra Iniciar.cmd para executar. Requer Windows e Python com Tkinter,
+já disponíveis neste computador. Não requer instalação de bibliotecas.
+
+O programa consulta as interfaces presentes no Windows e permite salvar
+um relatório local, sem número de série. Não envia dados para a internet.
+Clique em Verificar conexão USB depois de conectar ou desconectar um aparelho.
+
+Status OK significa apenas que o Windows reconheceu a interface.
+Não significa acesso aos arquivos, autorização de depuração ou desbloqueio.
+Mais de uma interface pode corresponder ao mesmo aparelho.
+
+Esta versão não recupera senhas, não remove bloqueios, não instala drivers
+e não formata nenhum dispositivo.
+
+Novo atendimento: registra cliente/código, modelo, bloqueio, acesso à conta,
+preferência sobre os dados, backup e autorização declarada. Gera orientação
+e salva JSON no local escolhido. Não registre senhas ou chaves no cadastro.
+O local escolhido pode ser sincronizado pelo OneDrive.
+
+Tela do Android: utiliza scrcpy 4.1 oficial, incluído na pasta tools.
+Exige depuração USB e autorização no próprio Android. Apenas visualização,
+sem áudio, gravação ou controle por mouse. Encerre a sessão pelo botão
+ou feche o programa para parar o espelhamento.
+Não há espelhamento de iPhone ou PC nesta versão.
+Fonte e licença: https://github.com/Genymobile/scrcpy
