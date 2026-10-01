@@ -25,3 +25,6 @@ sem áudio, gravação ou controle por mouse. Encerre a sessão pelo botão
 ou feche o programa para parar o espelhamento.
 Não há espelhamento de iPhone ou PC nesta versão.
 Fonte e licença: https://github.com/Genymobile/scrcpy
+
+Versão 0.2.0: menu lateral, tema escuro e vídeo dentro do painel Celular Android.
+Use Verificar autorização USB e Visualizar tela no painel.

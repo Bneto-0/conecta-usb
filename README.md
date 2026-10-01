@@ -18,7 +18,8 @@ Não é necessário instalar Python. O executável desta primeira versão não p
 - Relatório de diagnóstico em JSON, sem número de série.
 - Cadastro de atendimento com modelo, bloqueio, conta vinculada, backup, preferência sobre dados e autorização declarada.
 - Orientações e links para suporte oficial de Android, Apple e Microsoft.
-- Visualização da tela Android por USB usando scrcpy, sem áudio, gravação ou controle pelo mouse.
+- Interface escura com menu lateral e painel de atendimento.
+- Visualização da tela Android dentro do aplicativo, usando scrcpy, sem áudio, gravação ou controle pelo mouse.
 
 O espelhamento exige depuração USB e autorização no próprio aparelho. O cadastro não substitui uma autorização específica antes de procedimentos com perda de dados. Não informe senhas ou chaves nos campos.
 

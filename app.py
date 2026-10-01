@@ -9,6 +9,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from atendimento import Atendimento
 from tela import Tela
+from interface import build, show
 
 QUERY = r"""$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
@@ -36,56 +37,17 @@ class App:
         self.devices = []
         self.checked_at = None
         self.events = queue.Queue()
-        root.title('Conecta • Diagnóstico USB')
-        root.geometry('1020x680')
-        root.minsize(760, 560)
-        root.configure(bg='#101827')
-        style = ttk.Style()
-        style.theme_use('clam')
-        style.configure('Treeview', rowheight=34, font=('Segoe UI', 10))
-        style.configure('Treeview.Heading', font=('Segoe UI', 10, 'bold'))
-        main = tk.Frame(root, bg='#101827', padx=28, pady=24)
-        main.pack(fill='both', expand=True)
-        def label(text, size=11, color='#becbdd'):
-            widget = tk.Label(main, text=text, bg='#101827', fg=color,
-                              font=('Segoe UI', size), anchor='w', justify='left')
-            widget.pack(fill='x', pady=(0, 12))
-            return widget
-        label('CONECTA  /  DIAGNÓSTICO LOCAL', 11, '#61dcc0')
-        label('Seu aparelho, conectado.', 26, '#ffffff')
-        label('Verifique a conexão USB sem alterar os dados do celular.')
-        label('Diagnóstico, atendimento e visualização autorizada • Sem formatação.', 10, '#61dcc0')
-        bar = tk.Frame(main, bg='#101827')
-        bar.pack(fill='x', pady=(4, 18))
-        self.scan_button = tk.Button(bar, text='Verificar conexão USB', command=self.start_scan,
-            bg='#61dcc0', fg='#101827', relief='flat', padx=18, pady=10,
-            font=('Segoe UI', 11, 'bold'))
-        self.scan_button.pack(side='left')
-        self.export_button = tk.Button(bar, text='Salvar relatório', command=self.export,
-            state='disabled', padx=16, pady=10, relief='flat', font=('Segoe UI', 10))
-        self.export_button.pack(side='left', padx=12)
-        tk.Button(bar, text='Novo atendimento', command=lambda: Atendimento(root),
-                  padx=16, pady=10, relief='flat', font=('Segoe UI', 10)).pack(side='left')
         self.screen_windows = []
-        tk.Button(bar, text='Tela do Android', command=self.open_screen,
-                  padx=16, pady=10, relief='flat', font=('Segoe UI', 10)).pack(side='left', padx=8)
+        build(self, root)
         root.protocol('WM_DELETE_WINDOW', self.close)
-        self.status = label('Pronto para verificar.', 11, '#ffffff')
-        self.table = ttk.Treeview(main, columns=('name', 'class', 'status'), show='headings', height=6)
-        for key, title, width in [('name', 'Dispositivo', 400), ('class', 'Interface', 150), ('status', 'Status Windows', 150)]:
-            self.table.heading(key, text=title)
-            self.table.column(key, width=width)
-        self.table.pack(fill='both', expand=True)
-        self.table.bind('<<TreeviewSelect>>', self.select)
-        self.detail = tk.Label(main, text='Selecione um dispositivo para ver a orientação.',
-            bg='#1c293b', fg='#e2eaf4', font=('Segoe UI', 11), justify='left',
-            anchor='nw', padx=16, pady=16, wraplength=790)
-        self.detail.pack(fill='x', pady=(18, 0))
         root.after(100, self.poll)
         root.after(300, self.start_scan)
 
     def open_screen(self):
-        self.screen_windows.append(Tela(self.root))
+        if not self.screen_windows:
+            screen = Tela(self.content)
+            self.screen_windows.append(screen)
+        show(self, 'android')
 
     def close(self):
         for screen in self.screen_windows:
@@ -94,6 +56,7 @@ class App:
         self.root.destroy()
 
     def start_scan(self):
+        self.progress.start(12)
         self.scan_button.configure(state='disabled')
         self.export_button.configure(state='disabled')
         self.status.configure(text='Consultando os dispositivos presentes no Windows…')
@@ -107,6 +70,7 @@ class App:
     def poll(self):
         try:
             kind, value = self.events.get_nowait()
+            self.progress.stop()
             self.scan_button.configure(state='normal')
             self.table.delete(*self.table.get_children())
             self.devices = []
@@ -117,6 +81,8 @@ class App:
                 messagebox.showerror('Falha na consulta', value)
             else:
                 self.devices = value
+                names = [d.get('FriendlyName') for d in value if d.get('Class') == 'WPD']
+                self.device_name.configure(text=', '.join(names) if names else 'Nenhum celular identificado')
                 self.checked_at = datetime.now().isoformat(timespec='seconds')
                 self.export_button.configure(state='normal')
                 for index, device in enumerate(value):

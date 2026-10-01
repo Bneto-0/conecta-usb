@@ -2,9 +2,11 @@
 import queue
 import subprocess
 import threading
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, messagebox
+from janela_video import find_process_window, embed, resize
 
 TOOLS = Path(__file__).parent / 'tools' / 'scrcpy-win64-v4.1'
 
@@ -24,32 +26,36 @@ def adb_devices():
 
 class Tela:
     def __init__(self, parent):
-        self.window = tk.Toplevel(parent)
-        self.window.title('Conecta • Tela do Android')
-        self.window.geometry('720x440')
+        self.window = ttk.Frame(parent)
+        self.hwnd = None
+        self.deadline = 0
+        self.last_size = None
+        self.stopping = False
+        self.failure = None
         self.events = queue.Queue()
         self.process = None
         self.closed = False
         self.devices = []
-        frame = ttk.Frame(self.window, padding=24)
-        frame.pack(fill='both', expand=True)
+        frame = ttk.Frame(self.window, padding=18, width=360)
+        frame.pack(side='left', fill='y')
+        self.preview = tk.Frame(self.window, bg='#080d16', width=500, height=560)
+        self.preview.pack(side='right', fill='both', expand=True, padx=12, pady=12)
         ttk.Label(frame, text='Tela do Android por USB', font=('Segoe UI', 20, 'bold')).pack(anchor='w', pady=8)
-        ttk.Label(frame, text='No celular desbloqueado, ative a depuração USB e autorize este computador.\nNão funciona como remoção de senha. A sessão não grava vídeo nem áudio.', wraplength=650).pack(anchor='w', pady=8)
-        self.status = ttk.Label(frame, text='Verifique a conexão para começar.', wraplength=650)
+        ttk.Label(frame, text='No celular desbloqueado, ative a depuração USB e autorize este computador.\nNão funciona como remoção de senha. A sessão não grava vídeo nem áudio.', wraplength=330).pack(anchor='w', pady=8)
+        self.status = ttk.Label(frame, text='Verifique a conexão para começar.', wraplength=330)
         self.status.pack(anchor='w', pady=8)
-        self.choice = ttk.Combobox(frame, state='readonly', width=65)
+        self.choice = ttk.Combobox(frame, state='readonly', width=35)
         self.choice.pack(fill='x', pady=8)
         self.consent = tk.BooleanVar(value=False)
-        ttk.Checkbutton(frame, text='O proprietário autorizou visualizar a tela nesta sessão.', variable=self.consent).pack(anchor='w', pady=8)
+        ttk.Checkbutton(frame, text='O proprietário autorizou\nvisualizar a tela nesta sessão.', variable=self.consent).pack(anchor='w', pady=8)
         row = ttk.Frame(frame)
         row.pack(anchor='w', pady=10)
         self.check = ttk.Button(row, text='Verificar autorização USB', command=self.scan)
-        self.check.pack(side='left')
+        self.check.pack(fill='x', pady=4)
         self.start = ttk.Button(row, text='Visualizar tela', command=self.mirror, state='disabled')
-        self.start.pack(side='left', padx=8)
-        ttk.Button(row, text='Encerrar sessão', command=self.stop).pack(side='left')
-        ttk.Label(frame, text='Visualização somente: teclado e mouse não controlam o celular.\nFechar esta janela encerra o espelhamento.', wraplength=650).pack(anchor='w', pady=8)
-        self.window.protocol('WM_DELETE_WINDOW', self.close)
+        self.start.pack(fill='x', pady=4)
+        ttk.Button(row, text='Encerrar sessão', command=self.stop).pack(fill='x', pady=4)
+        ttk.Label(frame, text='Somente visualização, sem controle pelo mouse.\nFechar o aplicativo encerra a sessão.', wraplength=330).pack(anchor='w', pady=8)
         self.window.after(100, self.poll)
 
     def scan(self):
@@ -86,8 +92,29 @@ class Tela:
         if self.process is not None and self.process.poll() is not None:
             code = self.process.returncode
             self.process = None
-            self.status.configure(text='Sessão encerrada.' if code == 0 else 'Espelhamento não concluiu. Confira o cabo, a autorização e a compatibilidade do aparelho.')
+            self.hwnd = None
+            self.last_size = None
+            self.status.configure(text=self.failure or ('Sessão encerrada.' if code == 0 or self.stopping else 'Espelhamento não concluiu. Confira o cabo, a autorização e a compatibilidade do aparelho.'))
+            self.stopping = False
             self.start.configure(state='normal' if self.devices else 'disabled')
+        if self.process is not None and not self.stopping:
+            try:
+                if not self.hwnd:
+                    handle = find_process_window(self.process.pid)
+                    if handle:
+                        embed(handle, self.preview.winfo_id())
+                        self.hwnd = handle
+                        self.status.configure(text='Tela conectada dentro do Conecta. Somente visualização.')
+                    elif time.monotonic() > self.deadline:
+                        raise TimeoutError('O vídeo não abriu em 25 segundos. Verifique o aparelho e tente novamente.')
+                if self.hwnd:
+                    size = (self.preview.winfo_width(), self.preview.winfo_height())
+                    if size != self.last_size:
+                        resize(self.hwnd, *size)
+                        self.last_size = size
+            except OSError as exc:
+                self.failure = str(exc)
+                self.stop()
         self.window.after(150, self.poll)
 
     def mirror(self):
@@ -102,17 +129,23 @@ class Tela:
             self.status.configure(text='Aparelho não autorizado ou indisponível. Autorize no celular e verifique novamente.')
             return
         try:
+            self.hwnd = None
+            self.failure = None
+            self.stopping = False
+            self.last_size = None
+            self.deadline = time.monotonic() + 25
             self.process = subprocess.Popen([str(TOOLS / 'scrcpy.exe'), '--serial', serial,
-                '--no-control', '--no-audio', '--max-size=1280', '--window-title=Conecta - Tela autorizada'],
+                '--no-control', '--no-audio', '--max-size=1280', '--window-borderless', '--window-width=400', '--window-height=600', '--window-title=Conecta - Video integrado'],
                 cwd=str(TOOLS), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 creationflags=subprocess.CREATE_NO_WINDOW)
             self.start.configure(state='disabled')
-            self.status.configure(text='Abrindo visualização em uma janela separada…')
+            self.status.configure(text='Conectando vídeo ao painel do aplicativo…')
         except OSError as exc:
             self.status.configure(text=str(exc))
 
     def stop(self):
         if self.process is not None and self.process.poll() is None:
+            self.stopping = True
             self.process.terminate()
 
     def close(self):

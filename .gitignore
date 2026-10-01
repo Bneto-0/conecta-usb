@@ -7,3 +7,6 @@ tools/
 *.zip
 *.json
 release/
+
+build-*/
+dist-*/
